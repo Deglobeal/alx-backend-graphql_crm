@@ -42,6 +42,10 @@ INSTALLED_APPS = [
     'django_filters',      # <-- django-filter
 ]
 
+GRAPHENE = {
+    "SCHEMA": "alx_backend_graphql.schema.schema"
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

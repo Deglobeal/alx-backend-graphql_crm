@@ -1,5 +1,6 @@
 import graphene
-from graphene_django import DjangoObjectType
+from graphene_django import DjangoObjectType, DjangoFilterConnectionField
+from graphene import relay
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from .models import Customer, Product, Order, OrderItem
@@ -9,10 +10,14 @@ from .models import Customer, Product, Order, OrderItem
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
+        filter_fields = ["id", "email"]
+        interfaces = (relay.Node,)
+
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
+
 
 class OrderType(DjangoObjectType):
     class Meta:
@@ -127,13 +132,14 @@ class CreateOrder(graphene.Mutation):
         return CreateOrder(order=order)
 
 
-# ---------- ROOT ----------
+# ---------- QUERIES ----------
+class Query(graphene.ObjectType):
+    all_customers = DjangoFilterConnectionField(CustomerType)
+
+
+# ---------- MUTATIONS ----------
 class Mutation(graphene.ObjectType):
     create_customer       = CreateCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product        = CreateProduct.Field()
     create_order          = CreateOrder.Field()
-
-# Required by the checker
-class Query(graphene.ObjectType):
-    pass

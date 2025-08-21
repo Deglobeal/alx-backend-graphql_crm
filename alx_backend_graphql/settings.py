@@ -37,6 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'crm',                 # <-- our new app
+    'graphene_django',     # <-- graphene
+    'django_filters',      # <-- django-filter
 ]
 
 MIDDLEWARE = [

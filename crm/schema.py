@@ -17,11 +17,13 @@ class CustomerType(DjangoObjectType):
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
+        fields = "__all__"
 
 
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
+        fields = "__all__"
 
 
 # ---------- INPUTS ----------
@@ -30,10 +32,15 @@ class CustomerInput(graphene.InputObjectType):
     email = graphene.String(required=True)
     phone = graphene.String()
 
+class CustomerListInput(graphene.InputObjectType):
+    name  = graphene.String(required=True)
+    email = graphene.String(required=True)
+    phone = graphene.String()
+
 class ProductInput(graphene.InputObjectType):
     name  = graphene.String(required=True)
     price = graphene.Float(required=True)
-    stock = graphene.Int()
+    stock = graphene.Int(default=0)
 
 class OrderInput(graphene.InputObjectType):
     customer_id = graphene.ID(required=True)
@@ -51,40 +58,35 @@ class CreateCustomer(graphene.Mutation):
     def mutate(self, info, input):
         if Customer.objects.filter(email=input.email).exists():
             raise ValidationError("Email already exists.")
-        customer = Customer(name=input.name, email=input.email,
-                            phone=input.phone or "")
-        try:
-            customer.full_clean()
-            customer.save()
-        except ValidationError as e:
-            raise ValidationError(e.messages)
-        return CreateCustomer(customer=customer,
-                              message="Customer created successfully.")
+        c = Customer(name=input.name, email=input.email, phone=input.phone or "")
+        c.full_clean()
+        c.save()
+        return CreateCustomer(customer=c, message="Customer created successfully.")
 
 
 class BulkCreateCustomers(graphene.Mutation):
     class Arguments:
-        input = graphene.List(CustomerInput, required=True)
+        input = graphene.List(CustomerListInput, required=True)
 
     customers = graphene.List(CustomerType)
     errors    = graphene.List(graphene.String)
 
     def mutate(self, info, input):
-        success, errs = [], []
+        created, errors = [], []
         with transaction.atomic():
             for data in input:
                 try:
                     if Customer.objects.filter(email=data.email).exists():
-                        errs.append(f"{data.email} already exists.")
+                        errors.append(f"{data.email} already exists.")
                         continue
-                    cust = Customer(name=data.name, email=data.email,
-                                    phone=data.phone or "")
-                    cust.full_clean()
-                    cust.save()
-                    success.append(cust)
-                except ValidationError as e:
-                    errs += e.messages
-        return BulkCreateCustomers(customers=success, errors=errs)
+                    c = Customer(name=data.name, email=data.email,
+                                 phone=data.phone or "")
+                    c.full_clean()
+                    c.save()
+                    created.append(c)
+                except ValidationError as ve:
+                    errors.extend(ve.messages)
+        return BulkCreateCustomers(customers=created, errors=errors)
 
 
 class CreateProduct(graphene.Mutation):
@@ -94,12 +96,14 @@ class CreateProduct(graphene.Mutation):
     product = graphene.Field(ProductType)
 
     def mutate(self, info, input):
-        product = Product(name=input.name,
-                          price=input.price,
-                          stock=input.stock or 0)
-        product.full_clean()
-        product.save()
-        return CreateProduct(product=product)
+        if input.price <= 0:
+            raise ValidationError("Price must be positive.")
+        if input.stock < 0:
+            raise ValidationError("Stock must be non-negative.")
+        p = Product(name=input.name, price=input.price, stock=input.stock)
+        p.full_clean()
+        p.save()
+        return CreateProduct(product=p)
 
 
 class CreateOrder(graphene.Mutation):
@@ -113,6 +117,7 @@ class CreateOrder(graphene.Mutation):
             customer = Customer.objects.get(pk=input.customer_id)
         except Customer.DoesNotExist:
             raise ValidationError("Invalid customer ID.")
+
         if not input.product_ids:
             raise ValidationError("At least one product is required.")
 
@@ -123,11 +128,8 @@ class CreateOrder(graphene.Mutation):
         with transaction.atomic():
             order = Order(customer=customer)
             order.save()
-            total = 0
-            for prod in products:
-                OrderItem.objects.create(order=order, product=prod)
-                total += prod.price
-            order.total_amount = total
+            order.products.set(products)
+            order.total_amount = sum(p.price for p in products)
             order.save()
         return CreateOrder(order=order)
 

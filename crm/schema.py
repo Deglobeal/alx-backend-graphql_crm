@@ -1,29 +1,34 @@
+# crm/schema.py
 import graphene
 from graphene_django import DjangoObjectType, DjangoFilterConnectionField
 from graphene import relay
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django_filters import CharFilter, NumberFilter, DateTimeFilter
 from .models import Customer, Product, Order, OrderItem
+from .filters import CustomerFilter, ProductFilter, OrderFilter
 
 
 # ---------- TYPES ----------
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
-        filter_fields = ["id", "email"]
+        filterset_class = CustomerFilter
         interfaces = (relay.Node,)
 
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
-        fields = "__all__"
+        filterset_class = ProductFilter
+        interfaces = (relay.Node,)
 
 
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
-        fields = "__all__"
+        filterset_class = OrderFilter
+        interfaces = (relay.Node,)
 
 
 # ---------- INPUTS ----------
@@ -58,10 +63,12 @@ class CreateCustomer(graphene.Mutation):
     def mutate(self, info, input):
         if Customer.objects.filter(email=input.email).exists():
             raise ValidationError("Email already exists.")
-        c = Customer(name=input.name, email=input.email, phone=input.phone or "")
-        c.full_clean()
-        c.save()
-        return CreateCustomer(customer=c, message="Customer created successfully.")
+        customer = Customer(name=input.name, email=input.email,
+                            phone=input.phone or "")
+        customer.full_clean()
+        customer.save()
+        return CreateCustomer(customer=customer,
+                              message="Customer created successfully.")
 
 
 class BulkCreateCustomers(graphene.Mutation):
@@ -79,11 +86,11 @@ class BulkCreateCustomers(graphene.Mutation):
                     if Customer.objects.filter(email=data.email).exists():
                         errors.append(f"{data.email} already exists.")
                         continue
-                    c = Customer(name=data.name, email=data.email,
-                                 phone=data.phone or "")
-                    c.full_clean()
-                    c.save()
-                    created.append(c)
+                    cust = Customer(name=data.name, email=data.email,
+                                    phone=data.phone or "")
+                    cust.full_clean()
+                    cust.save()
+                    created.append(cust)
                 except ValidationError as ve:
                     errors.extend(ve.messages)
         return BulkCreateCustomers(customers=created, errors=errors)
@@ -100,10 +107,12 @@ class CreateProduct(graphene.Mutation):
             raise ValidationError("Price must be positive.")
         if input.stock < 0:
             raise ValidationError("Stock must be non-negative.")
-        p = Product(name=input.name, price=input.price, stock=input.stock)
-        p.full_clean()
-        p.save()
-        return CreateProduct(product=p)
+        product = Product(name=input.name,
+                          price=input.price,
+                          stock=input.stock)
+        product.full_clean()
+        product.save()
+        return CreateProduct(product=product)
 
 
 class CreateOrder(graphene.Mutation):
@@ -117,7 +126,6 @@ class CreateOrder(graphene.Mutation):
             customer = Customer.objects.get(pk=input.customer_id)
         except Customer.DoesNotExist:
             raise ValidationError("Invalid customer ID.")
-
         if not input.product_ids:
             raise ValidationError("At least one product is required.")
 
@@ -137,6 +145,8 @@ class CreateOrder(graphene.Mutation):
 # ---------- QUERIES ----------
 class Query(graphene.ObjectType):
     all_customers = DjangoFilterConnectionField(CustomerType)
+    all_products  = DjangoFilterConnectionField(ProductType)
+    all_orders    = DjangoFilterConnectionField(OrderType)
 
 
 # ---------- MUTATIONS ----------

@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-CRM Heartbeat Logger
-Logs heartbeat messages every 5 minutes to confirm CRM health
+CRM Heartbeat Logger with GraphQL integration
+Uses gql library to verify GraphQL endpoint health
 """
 
 import os
 import sys
-import requests
 from datetime import datetime
-from django.conf import settings
+from gql import gql, Client
+from gql.transport.requests import RequestsHTTPTransport
 
 def log_crm_heartbeat():
     """
     Log heartbeat message to confirm CRM is alive
     Format: DD/MM/YYYY-HH:MM:SS CRM is alive
+    Uses gql library to test GraphQL endpoint
     """
     # Get current timestamp in required format
     timestamp = datetime.now().strftime("%d/%m/%Y-%H:%M:%S")
@@ -36,26 +37,32 @@ def log_crm_heartbeat():
             
         print(f"Heartbeat logged: {log_message.strip()}")
         
-        # Optional: Test GraphQL endpoint
+        # Use gql library to test GraphQL endpoint
         try:
-            graphql_endpoint = "http://localhost:8000/graphql"
-            query = {
-                "query": "{ hello }"
-            }
-            
-            response = requests.post(
-                graphql_endpoint,
-                json=query,
-                headers={'Content-Type': 'application/json'},
-                timeout=5
+            # Create transport with gql
+            transport = RequestsHTTPTransport(
+                url="http://localhost:8000/graphql",
+                verify=True,
+                retries=3,
             )
             
-            if response.status_code == 200:
-                data = response.json()
-                if 'data' in data and 'hello' in data['data']:
-                    print(f"GraphQL endpoint responsive: {data['data']['hello']}")
+            # Create client
+            client = Client(transport=transport, fetch_schema_from_transport=False)
+            
+            # Define GraphQL query
+            query = gql("""
+                query {
+                    hello
+                }
+            """)
+            
+            # Execute query
+            result = client.execute(query)
+            
+            if result and 'hello' in result:
+                print(f"GraphQL endpoint responsive: {result['hello']}")
             else:
-                print(f"GraphQL endpoint not responsive: {response.status_code}")
+                print("GraphQL endpoint check completed")
                 
         except Exception as e:
             print(f"GraphQL check failed: {e}")

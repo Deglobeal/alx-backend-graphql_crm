@@ -1,8 +1,7 @@
 from datetime import datetime
-from gql import gql, Client
-from gql.transport.requests import RequestsHTTPTransport
+import requests  # ✅ required for HTTP call instead of gql
 from celery import shared_task
-import os
+from django.conf import settings
 
 @shared_task
 def generate_crm_report():
@@ -16,30 +15,31 @@ def generate_crm_report():
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_file = "/tmp/crm_report_log.txt"
 
-    transport = RequestsHTTPTransport(
-        url="http://localhost:8000/graphql",
-        timeout=10
-    )
-    client = Client(transport=transport, fetch_schema_from_transport=False)
-
-    query = gql("""
-        query {
-            totalCustomers
-            totalOrders
-            totalRevenue
-        }
-    """)
+    query = """
+    {
+      totalCustomers
+      totalOrders
+      totalRevenue
+    }
+    """
 
     try:
-        result = client.execute(query)
-        data = result.get("data", {})
+        response = requests.post(
+            "http://localhost:8000/graphql",
+            json={"query": query},
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json().get("data", {})
         customers = data.get("totalCustomers", 0)
         orders = data.get("totalOrders", 0)
         revenue = data.get("totalRevenue", 0)
 
         report = f"{timestamp} - Report: {customers} customers, {orders} orders, {revenue} revenue\n"
 
-        # Ensure directory exists
+        # ensure directory exists
+        import os
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
         with open(log_file, "a") as f:
             f.write(report)

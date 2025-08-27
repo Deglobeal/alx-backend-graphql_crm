@@ -7,7 +7,7 @@ from django.db import transaction
 from django_filters import CharFilter, NumberFilter, DateTimeFilter
 from .models import Customer, Product, Order, OrderItem
 from .filters import CustomerFilter, ProductFilter, OrderFilter
-
+from crm.models import Product
 
 # ---------- TYPES ----------
 class CustomerType(DjangoObjectType):
@@ -22,7 +22,7 @@ class ProductType(DjangoObjectType):
         model = Product
         filterset_class = ProductFilter
         interfaces = (relay.Node,)
-
+        fields = ("id", "name", "stock", "price")
 
 class OrderType(DjangoObjectType):
     class Meta:
@@ -140,6 +140,30 @@ class CreateOrder(graphene.Mutation):
             order.total_amount = sum(p.price for p in products)
             order.save()
         return CreateOrder(order=order)
+
+
+class UpdateLowStockProducts(graphene.Mutation):
+    """
+    Mutation to update the stock of products with stock < 10.
+    Adds 10 units to each low-stock product.
+    """
+    updated_count = graphene.Int()
+    products = graphene.List(ProductType)
+
+    class Arguments:
+        # Optional: allow overriding default increment of 10
+        increment = graphene.Int(default_value=10)
+
+    def mutate(self, info, increment=10):
+        from crm.models import Product  # Ensure model is available
+        low_stock_products = Product.objects.filter(stock__lt=10)
+        updated_count = low_stock_products.update(stock=10)
+
+        return UpdateLowStockProducts(
+            updated_count=updated_count,
+            products=list(low_stock_products)
+        )
+
 
 
 # ---------- QUERIES ----------

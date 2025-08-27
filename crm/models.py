@@ -13,7 +13,8 @@ class Customer(models.Model):
                 regex=r'^\+?\d{1,4}[\s\-]?\(?\d{1,4}\)?[\s\-]?\d{3}[\s\-]?\d{4,}$',
                 message="Phone must be in format '+1234567890' or '123-456-7890'."
             )
-        ]
+        ] )
+    created_at = models.DateTimeField(auto_now_add=True
     )
 
     def __str__(self):

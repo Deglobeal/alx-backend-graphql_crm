@@ -1,13 +1,14 @@
 # crm/schema.py
 import graphene
-from graphene_django import DjangoObjectType, DjangoFilterConnectionField
+from graphene_django import DjangoObjectType
+from graphene_django.filter import DjangoFilterConnectionField
 from graphene import relay
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django_filters import CharFilter, NumberFilter, DateTimeFilter
 from .models import Customer, Product, Order, OrderItem
 from .filters import CustomerFilter, ProductFilter, OrderFilter
 from crm.models import Product
+from django.db.models import Sum
 
 # ---------- TYPES ----------
 class CustomerType(DjangoObjectType):
@@ -171,6 +172,18 @@ class Query(graphene.ObjectType):
     all_customers = DjangoFilterConnectionField(CustomerType)
     all_products  = DjangoFilterConnectionField(ProductType)
     all_orders    = DjangoFilterConnectionField(OrderType)
+    totalCustomers = graphene.Int()
+    totalOrders    = graphene.Int()
+    totalRevenue   = graphene.Float()
+
+    def resolve_totalCustomers(root, info):
+        return Customer.objects.count()
+
+    def resolve_totalOrders(root, info):
+        return Order.objects.count()
+
+    def resolve_totalRevenue(root, info):
+        return Order.objects.aggregate(total=Sum('totalamount'))['total'] or 0
 
 
 # ---------- MUTATIONS ----------

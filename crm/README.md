@@ -3,7 +3,7 @@
 
 ---
 
-## 1. Prerequisites
+step 1. Prerequisites
 
 | Tool | Install / Verify |
 |------|------------------|
@@ -13,7 +13,7 @@
 
 ---
 
-## 2. Clone & Enter Project
+step 2. Clone & Enter Project
 
 ```bash
 git clone https://github.com/<your-org>/alx-backend-graphql_crm.git
@@ -22,7 +22,7 @@ cd alx-backend-graphql_crm
 
 ---
 
-## 3. Python Environment
+step 3. Python Environment
 
 ```bash
 python -m venv venv
@@ -33,8 +33,7 @@ pip install -r requirements.txt
 > `requirements.txt` already contains all packages.
 
 ---
-
-## 4. Configure Django Settings
+step 4. Configure Django Settings
 
 Ensure these lines exist in **crm/settings.py** (or `alx_backend_graphql/settings.py`):
 
@@ -64,7 +63,7 @@ CRONJOBS = [
 
 ---
 
-## 5. Database Migrations
+step 5. Database Migrations
 
 ```bash
 python manage.py migrate
@@ -72,7 +71,7 @@ python manage.py migrate
 
 ---
 
-## 6. Start Redis
+step 6. Start Redis
 
 | OS | Command |
 |----|---------|
